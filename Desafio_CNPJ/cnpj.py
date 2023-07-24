@@ -1,23 +1,46 @@
 import re
 from functools import reduce
+from random import randint
 
 
 def validate(cnpj: str):
-    cnpj = format_cnpj(cnpj)
-    original_cnpj = cnpj
-    cnpj = remove_lasts_digits(cnpj)
-    while len(cnpj) < 14:
-        cnpj_list = gen_cnpj_list(cnpj)
-        validation_list = gen_validation_list(cnpj)
+    cnpj = original_cnpj = number_cnpj(cnpj)
+    if len(cnpj) != 14:
+        raise ValueError("CNPJ precisa ter 14 dígitos numéricos!")
+    valid_cnpj = remove_lasts_digits(cnpj)
+    last_digit = calc_last_digits(valid_cnpj)
+    valid_cnpj += last_digit
+
+    return original_cnpj == valid_cnpj
+
+
+def calc_last_digits(formatted_cnpj: str):
+    digits = ''
+    for which_digit in range(1, 3):
+        cnpj_list = gen_cnpj_list(formatted_cnpj+digits)
+        validation_list = gen_validation_list(which_digit)
         product_list = gen_product_list(validation_list, cnpj_list)
-        final_sum = reduce_product_list(product_list)
-        formula_result = apply_formula(final_sum)
-        cnpj = add_final_digit(cnpj, formula_result)
-    is_valid_ = is_valid(original_cnpj, cnpj)
-    return is_valid_
+        product_itens_sum = reduce_product_list(product_list)
+        formula_result = apply_formula(product_itens_sum)
+        digits += final_digit(formula_result)
+    return digits
+
+
+def generate():
+    # 11.111.111/0001-> initial cnpj // 11 -> final digits
+    initial_cnpj = [str(randint(0, 9)) for i in range(8)]
+    initial_cnpj = ''.join(initial_cnpj) + '0001'
+    final_digits = calc_last_digits(initial_cnpj)
+    full_cnpj = str(initial_cnpj) + final_digits
+    formatted_cnpj = format_cnpj(full_cnpj)
+    return formatted_cnpj
 
 
 def format_cnpj(cnpj: str):
+    return f'{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}'
+
+
+def number_cnpj(cnpj: str):
     return re.sub(r'[^0-9]', '', cnpj)
 
 
@@ -29,19 +52,18 @@ def gen_cnpj_list(cnpj: str):
     return [int(x) for x in cnpj]
 
 
-def gen_validation_list(cnpj: str):
-    if len(cnpj) == 12:
+def gen_validation_list(digit: int):
+    if digit == 1:  # validation list of 1° digit
         validation_string = '543298765432'
         validation_list = [int(x) for x in validation_string]
-    elif len(cnpj) == 13:
+    else:  # validation list of 2° digit
         validation_string = '6543298765432'
         validation_list = [int(x) for x in validation_string]
     return validation_list
 
 
 def gen_product_list(validation_list: list, cnpj_list: list):
-    product_list = [validation_list[i] * cnpj_list[i] for i in range(len(cnpj_list))]
-    return product_list
+    return [validation_list[i] * cnpj_list[i] for i in range(len(validation_list))]
 
 
 def reduce_product_list(product_list: list):
@@ -52,16 +74,5 @@ def apply_formula(final_sum: int):
     return 11 - (final_sum % 11)
 
 
-def add_final_digit(cnpj: str, final_sum: int):
-    if final_sum > 9:
-        cnpj += '0'
-    else:
-        cnpj += str(final_sum)
-    return cnpj
-
-
-def is_valid(original_cnpj: str, cnpj: str):
-    if original_cnpj == cnpj:
-        return True
-    else:
-        return False
+def final_digit(final_sum: int):
+    return str(final_sum) if final_sum <= 9 else '0'
